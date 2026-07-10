@@ -45,9 +45,3 @@
 - [x] 7.2 Manual walkthrough: manager configures a standard combination (matches catalog), a custom-size combination (new entry), and an out-of-range size (blocked) — capture for the demo video
 - [x] 7.3 Manual walkthrough: admin adds a new color/material and confirms it immediately appears in the manager's configurator dropdown
 - [x] 7.4 Run `/code-review` (or a separate agent pass) on the implementation before considering it done, per maker ≠ checker practice
-
-## 8. Wrap-up
-
-- [ ] 8.1 Record 1-2 minute demo video covering the product and the agentic engineering practices applied
-- [ ] 8.2 Fill out PR template with practices used, what the agent did vs. what the user decided
-- [ ] 8.3 Archive this OpenSpec change once implementation and review are complete
