@@ -5,10 +5,11 @@ Compares a validated product configuration against existing standard catalog ent
 ## Requirements
 
 ### Requirement: System matches a configuration against the standard catalog by dictionary ID
-The system SHALL compare a valid configuration's dictionary references (product type, facade color ID, facade material ID, part size IDs/values) against existing standard `CatalogEntry` records using dictionary IDs, not display names or free text.
+The system SHALL compare a valid configuration's dictionary references (product type, facade color ID, facade material ID, corpus material ID, part size IDs/values, and hardware item IDs) against existing standard `CatalogEntry` records using dictionary IDs, not display names or free text.
 
 #### Scenario: Configuration matches an existing catalog entry
 - **WHEN** a manager's valid configuration has the same product type, facade color ID, facade material ID, and sizes as an existing `CatalogEntry`
+- **AND** the configuration has the same corpus material ID and the same set of hardware item IDs
 - **THEN** the system marks the BOM as `isStandard: true` and includes a reference to the matching entry's SKU
 
 #### Scenario: Configuration does not match any catalog entry
