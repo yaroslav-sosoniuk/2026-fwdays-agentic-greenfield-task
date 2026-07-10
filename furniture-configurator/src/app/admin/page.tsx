@@ -49,12 +49,14 @@ export default async function AdminPage() {
       <SimpleDictionarySection
         title="Кольори"
         resourcePath="/api/colors"
+        listKey="colors"
         itemKey="color"
         initialItems={colors}
       />
       <SimpleDictionarySection
         title="Матеріали"
         resourcePath="/api/materials"
+        listKey="materials"
         itemKey="material"
         initialItems={materials}
       />

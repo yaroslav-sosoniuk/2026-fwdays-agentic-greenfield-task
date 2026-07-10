@@ -17,6 +17,8 @@
     "@mui/material-nextjs": "^9.1.1",
     "@prisma/adapter-better-sqlite3": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@tanstack/react-form": "^1.33.1",
+    "@tanstack/react-query": "^5.101.2",
     "better-sqlite3": "^12.11.1",
     "next": "16.2.10",
     "prisma": "^7.8.0",

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import { useForm } from "@tanstack/react-form";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -22,15 +23,15 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-
-type DimensionType = "WIDTH" | "HEIGHT" | "DEPTH";
-
-interface StandardSizeEntry {
-  id: number;
-  dimensionType: DimensionType;
-  valueCm: number;
-  active: boolean;
-}
+import { toErrorMessage } from "@/lib/queries/fetchJson";
+import { validatePositiveInteger } from "@/lib/forms/validators";
+import {
+  useAddStandardSizeMutation,
+  useStandardSizesQuery,
+  useToggleStandardSizeActiveMutation,
+  type DimensionType,
+  type StandardSizeEntry,
+} from "@/lib/queries/useStandardSizes";
 
 const DIMENSION_LABELS: Record<DimensionType, string> = {
   WIDTH: "Ширина",
@@ -43,47 +44,23 @@ export function StandardSizesSection({
 }: {
   initialItems: StandardSizeEntry[];
 }) {
-  const [items, setItems] = useState(initialItems);
-  const [dimensionType, setDimensionType] = useState<DimensionType>("WIDTH");
-  const [valueCm, setValueCm] = useState(40);
-  const [error, setError] = useState<string | null>(null);
+  const { data: items } = useStandardSizesQuery(initialItems);
+  const addMutation = useAddStandardSizeMutation();
+  const toggleMutation = useToggleStandardSizeActiveMutation();
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  async function handleAdd(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
+  const form = useForm({
+    defaultValues: { dimensionType: "WIDTH" as DimensionType, valueCm: 40 },
+    onSubmit: async ({ value }) => {
+      await addMutation.mutateAsync(value);
+      form.reset();
+      setDialogOpen(false);
+    },
+  });
 
-    const response = await fetch("/api/standard-sizes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dimensionType, valueCm }),
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      setError(json.error ?? "Не вдалося додати");
-      return;
-    }
-    setItems((prev) =>
-      [...prev, json.standardSize].sort((a, b) =>
-        a.dimensionType === b.dimensionType
-          ? a.valueCm - b.valueCm
-          : a.dimensionType.localeCompare(b.dimensionType),
-      ),
-    );
+  function closeDialog() {
     setDialogOpen(false);
-  }
-
-  async function toggleActive(item: StandardSizeEntry) {
-    const response = await fetch(`/api/standard-sizes/${item.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: !item.active }),
-    });
-    if (!response.ok) return;
-    const json = await response.json();
-    setItems((prev) =>
-      prev.map((i) => (i.id === json.standardSize.id ? json.standardSize : i)),
-    );
+    addMutation.reset();
   }
 
   return (
@@ -119,7 +96,7 @@ export function StandardSizesSection({
                 )}
               </TableCell>
               <TableCell align="right">
-                <Button size="small" onClick={() => toggleActive(item)}>
+                <Button size="small" onClick={() => toggleMutation.mutate(item)}>
                   {item.active ? "Деактивувати" : "Активувати"}
                 </Button>
               </TableCell>
@@ -128,41 +105,71 @@ export function StandardSizesSection({
         </TableBody>
       </Table>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="xs">
-        <Box component="form" onSubmit={handleAdd}>
+      <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="xs">
+        <Box
+          component="form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            form.handleSubmit().catch(() => {});
+          }}
+        >
           <DialogTitle>Додати стандартний розмір</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
-              <FormControl fullWidth>
-                <InputLabel id="dimension-type-label">Вимір</InputLabel>
-                <Select
-                  labelId="dimension-type-label"
-                  label="Вимір"
-                  value={dimensionType}
-                  onChange={(e) => setDimensionType(e.target.value as DimensionType)}
-                >
-                  {Object.entries(DIMENSION_LABELS).map(([value, label]) => (
-                    <MenuItem key={value} value={value}>
-                      {label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                label="Значення, см"
-                type="number"
-                value={valueCm}
-                onChange={(e) => setValueCm(Number(e.target.value))}
-                fullWidth
-              />
-              {error && <Alert severity="error">{error}</Alert>}
+              <form.Field name="dimensionType">
+                {(field) => (
+                  <FormControl fullWidth>
+                    <InputLabel id="dimension-type-label">Вимір</InputLabel>
+                    <Select
+                      labelId="dimension-type-label"
+                      label="Вимір"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value as DimensionType)}
+                    >
+                      {Object.entries(DIMENSION_LABELS).map(([value, label]) => (
+                        <MenuItem key={value} value={value}>
+                          {label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+              </form.Field>
+              <form.Field name="valueCm" validators={{ onChange: validatePositiveInteger }}>
+                {(field) => (
+                  <TextField
+                    label="Значення, см"
+                    type="number"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(Number(e.target.value))}
+                    onBlur={field.handleBlur}
+                    error={Boolean(field.state.meta.errors.length)}
+                    helperText={field.state.meta.errors[0]}
+                    fullWidth
+                  />
+                )}
+              </form.Field>
+              {addMutation.isError && (
+                <Alert severity="error">
+                  {toErrorMessage(addMutation.error, "Не вдалося додати")}
+                </Alert>
+              )}
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDialogOpen(false)}>Скасувати</Button>
-            <Button type="submit" variant="contained">
-              Додати
-            </Button>
+            <Button onClick={closeDialog}>Скасувати</Button>
+            <form.Subscribe selector={(state) => state.canSubmit}>
+              {(canSubmit) => (
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={!canSubmit || addMutation.isPending}
+                >
+                  Додати
+                </Button>
+              )}
+            </form.Subscribe>
           </DialogActions>
         </Box>
       </Dialog>

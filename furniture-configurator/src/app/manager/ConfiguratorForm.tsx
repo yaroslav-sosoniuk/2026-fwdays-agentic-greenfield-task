@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useForm } from "@tanstack/react-form";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -15,6 +15,10 @@ import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { toErrorMessage } from "@/lib/queries/fetchJson";
+import { useSubmitConfigurationMutation } from "@/lib/queries/useConfigurations";
+import { getExistingCatalogMatch, useSaveCatalogEntryMutation } from "@/lib/queries/useCatalogEntries";
+import { validatePositiveInteger } from "@/lib/forms/validators";
 
 interface DictionaryOption {
   id: number;
@@ -27,23 +31,13 @@ interface HardwareOption {
   sku: string;
 }
 
-interface BOMComponent {
-  partRole: string;
-  sku: string;
-  label: string;
-}
-
-interface BOMError {
-  partRole: string;
-  message: string;
-}
-
-interface ConfigurationResponse {
-  bomResult:
-    | { valid: true; bom: BOMComponent[] }
-    | { valid: false; errors: BOMError[] };
-  isStandard: boolean;
-  matchingEntry: { id: number; sku: string } | null;
+interface ConfiguratorFormValues {
+  topSizeCm: number;
+  bottomSizeCm: number;
+  facadeColorId: number;
+  facadeMaterialId: number;
+  corpusMaterialId: number;
+  hardwareItemIds: number[];
 }
 
 export function ConfiguratorForm({
@@ -57,83 +51,41 @@ export function ConfiguratorForm({
   materials: DictionaryOption[];
   hardwareItems: HardwareOption[];
 }) {
-  const [topSizeCm, setTopSizeCm] = useState(60);
-  const [bottomSizeCm, setBottomSizeCm] = useState(60);
-  const [facadeColorId, setFacadeColorId] = useState(colors[0]?.id ?? 0);
-  const [facadeMaterialId, setFacadeMaterialId] = useState(materials[0]?.id ?? 0);
-  const [corpusMaterialId, setCorpusMaterialId] = useState(materials[0]?.id ?? 0);
-  const [selectedHardwareIds, setSelectedHardwareIds] = useState<number[]>([]);
+  const submitMutation = useSubmitConfigurationMutation();
+  const saveMutation = useSaveCatalogEntryMutation();
 
-  const [result, setResult] = useState<ConfigurationResponse | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const form = useForm({
+    defaultValues: {
+      topSizeCm: 60,
+      bottomSizeCm: 60,
+      facadeColorId: colors[0]?.id ?? 0,
+      facadeMaterialId: materials[0]?.id ?? 0,
+      corpusMaterialId: materials[0]?.id ?? 0,
+      hardwareItemIds: [] as number[],
+    } satisfies ConfiguratorFormValues,
+    onSubmit: async ({ value }) => {
+      saveMutation.reset();
+      await submitMutation.mutateAsync({ ...value, productTypeId: productType.id });
+    },
+  });
 
-  function toggleHardware(id: number) {
-    setSelectedHardwareIds((prev) =>
-      prev.includes(id) ? prev.filter((h) => h !== id) : [...prev, id],
-    );
+  function handleSaveAsCatalogEntry() {
+    saveMutation.mutate({ ...form.state.values, productTypeId: productType.id });
   }
 
-  function buildPayload() {
-    return {
-      productTypeId: productType.id,
-      topSizeCm,
-      bottomSizeCm,
-      facadeColorId,
-      facadeMaterialId,
-      corpusMaterialId,
-      hardwareItemIds: selectedHardwareIds,
-    };
-  }
+  const result = submitMutation.data;
+  const submitError = submitMutation.isError
+    ? toErrorMessage(submitMutation.error, "Не вдалося сформувати BOM")
+    : null;
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    setIsSubmitting(true);
-    setSubmitError(null);
-    setSaveMessage(null);
-    setResult(null);
-    try {
-      const response = await fetch("/api/configurations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPayload()),
-      });
-      const json = await response.json();
-      if (!response.ok) {
-        setSubmitError(json.error ?? "Не вдалося сформувати BOM");
-        return;
-      }
-      setResult(json);
-    } catch {
-      setSubmitError("Помилка мережі");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  async function handleSaveAsCatalogEntry() {
-    setSaveMessage(null);
-    try {
-      const response = await fetch("/api/catalog-entries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPayload()),
-      });
-      const json = await response.json();
-      if (response.status === 409) {
-        setSaveMessage(`Ця комбінація вже є в каталозі: ${json.existingMatch?.sku}`);
-        return;
-      }
-      if (!response.ok) {
-        setSaveMessage(json.error ?? "Не вдалося зберегти");
-        return;
-      }
-      setSaveMessage(`Збережено як нову каталожну позицію: ${json.catalogEntry.sku}`);
-    } catch {
-      setSaveMessage("Помилка мережі");
-    }
-  }
+  const existingMatch = saveMutation.isError ? getExistingCatalogMatch(saveMutation.error) : null;
+  const saveMessage = saveMutation.isSuccess
+    ? `Збережено як нову каталожну позицію: ${saveMutation.data.catalogEntry.sku}`
+    : saveMutation.isError
+      ? existingMatch
+        ? `Ця комбінація вже є в каталозі: ${existingMatch.sku}`
+        : toErrorMessage(saveMutation.error, "Не вдалося зберегти")
+      : null;
 
   const errorsByPart = new Map<string, string>();
   if (result && !result.bomResult.valid) {
@@ -144,103 +96,152 @@ export function ConfiguratorForm({
 
   return (
     <Box sx={{ mt: 2 }}>
-      <Paper component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
+      <Paper
+        component="form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          form.handleSubmit().catch(() => {});
+        }}
+        sx={{ p: 3 }}
+      >
         <Typography variant="h6" component="h2" gutterBottom>
           {productType.name}
         </Typography>
 
         <Stack spacing={2}>
-          <TextField
-            label="Верх, см"
-            type="number"
-            value={topSizeCm}
-            onChange={(e) => setTopSizeCm(Number(e.target.value))}
-            required
-            error={Boolean(errorsByPart.get("TOP"))}
-            helperText={errorsByPart.get("TOP")}
-          />
+          <form.Field name="topSizeCm" validators={{ onChange: validatePositiveInteger }}>
+            {(field) => (
+              <TextField
+                label="Верх, см"
+                type="number"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(Number(e.target.value))}
+                onBlur={field.handleBlur}
+                required
+                error={Boolean(field.state.meta.errors.length) || Boolean(errorsByPart.get("TOP"))}
+                helperText={field.state.meta.errors[0] ?? errorsByPart.get("TOP")}
+              />
+            )}
+          </form.Field>
 
-          <TextField
-            label="Низ, см"
-            type="number"
-            value={bottomSizeCm}
-            onChange={(e) => setBottomSizeCm(Number(e.target.value))}
-            required
-            error={Boolean(errorsByPart.get("BOTTOM"))}
-            helperText={errorsByPart.get("BOTTOM")}
-          />
+          <form.Field name="bottomSizeCm" validators={{ onChange: validatePositiveInteger }}>
+            {(field) => (
+              <TextField
+                label="Низ, см"
+                type="number"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(Number(e.target.value))}
+                onBlur={field.handleBlur}
+                required
+                error={
+                  Boolean(field.state.meta.errors.length) || Boolean(errorsByPart.get("BOTTOM"))
+                }
+                helperText={field.state.meta.errors[0] ?? errorsByPart.get("BOTTOM")}
+              />
+            )}
+          </form.Field>
 
-          <FormControl fullWidth>
-            <InputLabel id="facade-color-label">Колір фасаду</InputLabel>
-            <Select
-              labelId="facade-color-label"
-              label="Колір фасаду"
-              value={facadeColorId}
-              onChange={(e) => setFacadeColorId(Number(e.target.value))}
-            >
-              {colors.map((c) => (
-                <MenuItem key={c.id} value={c.id}>
-                  {c.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <form.Field name="facadeColorId">
+            {(field) => (
+              <FormControl fullWidth>
+                <InputLabel id="facade-color-label">Колір фасаду</InputLabel>
+                <Select
+                  labelId="facade-color-label"
+                  label="Колір фасаду"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(Number(e.target.value))}
+                >
+                  {colors.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          </form.Field>
 
-          <FormControl fullWidth>
-            <InputLabel id="facade-material-label">Матеріал фасаду</InputLabel>
-            <Select
-              labelId="facade-material-label"
-              label="Матеріал фасаду"
-              value={facadeMaterialId}
-              onChange={(e) => setFacadeMaterialId(Number(e.target.value))}
-            >
-              {materials.map((m) => (
-                <MenuItem key={m.id} value={m.id}>
-                  {m.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <form.Field name="facadeMaterialId">
+            {(field) => (
+              <FormControl fullWidth>
+                <InputLabel id="facade-material-label">Матеріал фасаду</InputLabel>
+                <Select
+                  labelId="facade-material-label"
+                  label="Матеріал фасаду"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(Number(e.target.value))}
+                >
+                  {materials.map((m) => (
+                    <MenuItem key={m.id} value={m.id}>
+                      {m.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          </form.Field>
 
-          <FormControl fullWidth>
-            <InputLabel id="corpus-material-label">Матеріал корпусу</InputLabel>
-            <Select
-              labelId="corpus-material-label"
-              label="Матеріал корпусу"
-              value={corpusMaterialId}
-              onChange={(e) => setCorpusMaterialId(Number(e.target.value))}
-            >
-              {materials.map((m) => (
-                <MenuItem key={m.id} value={m.id}>
-                  {m.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <form.Field name="corpusMaterialId">
+            {(field) => (
+              <FormControl fullWidth>
+                <InputLabel id="corpus-material-label">Матеріал корпусу</InputLabel>
+                <Select
+                  labelId="corpus-material-label"
+                  label="Матеріал корпусу"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(Number(e.target.value))}
+                >
+                  {materials.map((m) => (
+                    <MenuItem key={m.id} value={m.id}>
+                      {m.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          </form.Field>
 
-          <Box>
-            <Typography variant="subtitle2" gutterBottom>
-              Фурнітура
-            </Typography>
-            <FormGroup>
-              {hardwareItems.map((h) => (
-                <FormControlLabel
-                  key={h.id}
-                  control={
-                    <Checkbox
-                      checked={selectedHardwareIds.includes(h.id)}
-                      onChange={() => toggleHardware(h.id)}
+          <form.Field name="hardwareItemIds">
+            {(field) => (
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Фурнітура
+                </Typography>
+                <FormGroup>
+                  {hardwareItems.map((h) => (
+                    <FormControlLabel
+                      key={h.id}
+                      control={
+                        <Checkbox
+                          checked={field.state.value.includes(h.id)}
+                          onChange={() => {
+                            const next = field.state.value.includes(h.id)
+                              ? field.state.value.filter((id) => id !== h.id)
+                              : [...field.state.value, h.id];
+                            field.handleChange(next);
+                          }}
+                        />
+                      }
+                      label={`${h.name} (${h.sku})`}
                     />
-                  }
-                  label={`${h.name} (${h.sku})`}
-                />
-              ))}
-            </FormGroup>
-          </Box>
+                  ))}
+                </FormGroup>
+              </Box>
+            )}
+          </form.Field>
 
-          <Button type="submit" variant="contained" disabled={isSubmitting}>
-            Сформувати BOM
-          </Button>
+          <form.Subscribe selector={(state) => state.canSubmit}>
+            {(canSubmit) => (
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={!canSubmit || submitMutation.isPending}
+              >
+                {submitMutation.isPending ? "Формування..." : "Сформувати BOM"}
+              </Button>
+            )}
+          </form.Subscribe>
         </Stack>
       </Paper>
 
@@ -267,8 +268,13 @@ export function ConfiguratorForm({
                 ))}
               </Box>
               {!result.isStandard && (
-                <Button onClick={handleSaveAsCatalogEntry} variant="outlined" sx={{ alignSelf: "flex-start" }}>
-                  Зберегти як нову каталожну позицію
+                <Button
+                  onClick={handleSaveAsCatalogEntry}
+                  variant="outlined"
+                  disabled={saveMutation.isPending}
+                  sx={{ alignSelf: "flex-start" }}
+                >
+                  {saveMutation.isPending ? "Збереження..." : "Зберегти як нову каталожну позицію"}
                 </Button>
               )}
               {saveMessage && <Alert severity="info">{saveMessage}</Alert>}

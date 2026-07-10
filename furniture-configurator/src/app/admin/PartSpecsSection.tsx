@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Checkbox from "@mui/material/Checkbox";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
@@ -10,14 +9,11 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-
-interface PartSpecEntry {
-  id: number;
-  partRole: string;
-  allowsCustomSize: boolean;
-  minCm: number | null;
-  maxCm: number | null;
-}
+import {
+  usePartSpecsQuery,
+  useUpdatePartSpecMutation,
+  type PartSpecEntry,
+} from "@/lib/queries/usePartSpecs";
 
 const PART_ROLE_LABELS: Record<string, string> = {
   TOP: "Верх",
@@ -27,20 +23,14 @@ const PART_ROLE_LABELS: Record<string, string> = {
 };
 
 export function PartSpecsSection({ initialItems }: { initialItems: PartSpecEntry[] }) {
-  const [items, setItems] = useState(initialItems);
+  const { data: items } = usePartSpecsQuery(initialItems);
+  const updateMutation = useUpdatePartSpecMutation();
 
-  async function updateSpec(
+  function updateSpec(
     id: number,
     patch: Partial<Pick<PartSpecEntry, "allowsCustomSize" | "minCm" | "maxCm">>,
   ) {
-    const response = await fetch(`/api/part-specs/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-    if (!response.ok) return;
-    const json = await response.json();
-    setItems((prev) => prev.map((i) => (i.id === json.partSpec.id ? json.partSpec : i)));
+    updateMutation.mutate({ id, ...patch });
   }
 
   return (

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import { useForm } from "@tanstack/react-form";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -18,55 +19,36 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { toErrorMessage } from "@/lib/queries/fetchJson";
+import {
+  useAddHardwareItemMutation,
+  useHardwareItemsQuery,
+  useToggleHardwareItemActiveMutation,
+  type HardwareItemEntry,
+} from "@/lib/queries/useHardwareItems";
 
-interface HardwareEntry {
-  id: number;
-  name: string;
-  sku: string;
-  active: boolean;
+function requiredField({ value }: { value: string }) {
+  return value.trim() ? undefined : "Обов'язкове поле";
 }
 
-export function HardwareSection({ initialItems }: { initialItems: HardwareEntry[] }) {
-  const [items, setItems] = useState(initialItems);
-  const [name, setName] = useState("");
-  const [sku, setSku] = useState("");
-  const [error, setError] = useState<string | null>(null);
+export function HardwareSection({ initialItems }: { initialItems: HardwareItemEntry[] }) {
+  const { data: items } = useHardwareItemsQuery(initialItems);
+  const addMutation = useAddHardwareItemMutation();
+  const toggleMutation = useToggleHardwareItemActiveMutation();
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  async function handleAdd(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    if (!name.trim() || !sku.trim()) return;
+  const form = useForm({
+    defaultValues: { name: "", sku: "" },
+    onSubmit: async ({ value }) => {
+      await addMutation.mutateAsync({ name: value.name.trim(), sku: value.sku.trim() });
+      form.reset();
+      setDialogOpen(false);
+    },
+  });
 
-    const response = await fetch("/api/hardware-items", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), sku: sku.trim() }),
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      setError(json.error ?? "Не вдалося додати");
-      return;
-    }
-    setItems((prev) =>
-      [...prev, json.hardwareItem].sort((a, b) => a.name.localeCompare(b.name)),
-    );
-    setName("");
-    setSku("");
+  function closeDialog() {
     setDialogOpen(false);
-  }
-
-  async function toggleActive(item: HardwareEntry) {
-    const response = await fetch(`/api/hardware-items/${item.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: !item.active }),
-    });
-    if (!response.ok) return;
-    const json = await response.json();
-    setItems((prev) =>
-      prev.map((i) => (i.id === json.hardwareItem.id ? json.hardwareItem : i)),
-    );
+    addMutation.reset();
   }
 
   return (
@@ -102,7 +84,7 @@ export function HardwareSection({ initialItems }: { initialItems: HardwareEntry[
                 )}
               </TableCell>
               <TableCell align="right">
-                <Button size="small" onClick={() => toggleActive(item)}>
+                <Button size="small" onClick={() => toggleMutation.mutate(item)}>
                   {item.active ? "Деактивувати" : "Активувати"}
                 </Button>
               </TableCell>
@@ -111,32 +93,61 @@ export function HardwareSection({ initialItems }: { initialItems: HardwareEntry[
         </TableBody>
       </Table>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="xs">
-        <Box component="form" onSubmit={handleAdd}>
+      <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="xs">
+        <Box
+          component="form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            form.handleSubmit().catch(() => {});
+          }}
+        >
           <DialogTitle>Додати фурнітуру</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
-              <TextField
-                autoFocus
-                label="Назва"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                fullWidth
-              />
-              <TextField
-                label="SKU"
-                value={sku}
-                onChange={(e) => setSku(e.target.value)}
-                fullWidth
-              />
-              {error && <Alert severity="error">{error}</Alert>}
+              <form.Field name="name" validators={{ onChange: requiredField }}>
+                {(field) => (
+                  <TextField
+                    autoFocus
+                    label="Назва"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    fullWidth
+                  />
+                )}
+              </form.Field>
+              <form.Field name="sku" validators={{ onChange: requiredField }}>
+                {(field) => (
+                  <TextField
+                    label="SKU"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    fullWidth
+                  />
+                )}
+              </form.Field>
+              {addMutation.isError && (
+                <Alert severity="error">
+                  {toErrorMessage(addMutation.error, "Не вдалося додати")}
+                </Alert>
+              )}
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDialogOpen(false)}>Скасувати</Button>
-            <Button type="submit" variant="contained">
-              Додати
-            </Button>
+            <Button onClick={closeDialog}>Скасувати</Button>
+            <form.Subscribe selector={(state) => state.canSubmit}>
+              {(canSubmit) => (
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={!canSubmit || addMutation.isPending}
+                >
+                  Додати
+                </Button>
+              )}
+            </form.Subscribe>
           </DialogActions>
         </Box>
       </Dialog>
