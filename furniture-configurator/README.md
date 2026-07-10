@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Furniture Configurator & Catalog demo — Next.js (App Router) + TypeScript, Prisma ORM + SQLite, Vitest.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies, then apply the Prisma schema and seed the database:
+
+```bash
+npm install
+npx prisma migrate dev
+npx prisma db seed
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser — you'll be redirected to `/login`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+You can start editing the app by modifying files under `src/app`. The page auto-updates as you edit.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Demo roles
 
-## Learn More
+The login page shows the available demo accounts:
 
-To learn more about Next.js, take a look at the following resources:
+- `manager` / `manager123` — configurator (`/manager`), builds and prices a nightstand from catalog attributes.
+- `admin` / `admin123` — catalog administration (`/admin`), manages dictionaries, standard sizes, part specs, and catalog entries.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Log in with either account to check role-based access; each role redirects to its own section after authentication.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Tests
 
-## Deploy on Vercel
+```bash
+npm test
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Runs the Vitest suite, including the pure domain-logic tests under `src/lib/configurator/*`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Production build
+
+```bash
+npm run build
+npm run start
+```
+
+## Prisma
+
+- `npx prisma migrate dev` — apply schema changes to the local SQLite DB.
+- `npx prisma db seed` — seed dictionaries, the nightstand product type, and catalog data.
+- `npx prisma studio` — inspect the SQLite DB.
+
