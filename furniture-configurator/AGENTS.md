@@ -9,7 +9,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 Stack: Next.js (App Router) + TypeScript, Prisma ORM + SQLite, Vitest for tests.
 
 Spec-driven: this project follows the OpenSpec change at
-`../openspec/changes/furniture-configurator/` (proposal, design, specs, tasks).
+`../openspec/changes/` (proposal, design, specs, tasks).
 Read `design.md` and `specs/**/spec.md` there before changing behavior.
 
 ## Domain logic boundary
