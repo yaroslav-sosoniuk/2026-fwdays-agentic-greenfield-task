@@ -1,6 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import Checkbox from "@mui/material/Checkbox";
+import Paper from "@mui/material/Paper";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 
 interface PartSpecEntry {
   id: number;
@@ -35,31 +44,33 @@ export function PartSpecsSection({ initialItems }: { initialItems: PartSpecEntry
   }
 
   return (
-    <section style={{ marginBottom: 24 }}>
-      <h2>Правила розмірів частин</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Частина</th>
-            <th>Індивідуальні розміри</th>
-            <th>Мін, см</th>
-            <th>Макс, см</th>
-          </tr>
-        </thead>
-        <tbody>
+    <Paper sx={{ p: 3, mb: 3 }}>
+      <Typography variant="h6" component="h2" sx={{ mb: 2 }}>
+        Правила розмірів частин
+      </Typography>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Частина</TableCell>
+            <TableCell>Індивідуальні розміри</TableCell>
+            <TableCell>Мін, см</TableCell>
+            <TableCell>Макс, см</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
           {items.map((item) => (
-            <tr key={item.id}>
-              <td>{PART_ROLE_LABELS[item.partRole] ?? item.partRole}</td>
-              <td>
-                <input
-                  type="checkbox"
+            <TableRow key={item.id}>
+              <TableCell>{PART_ROLE_LABELS[item.partRole] ?? item.partRole}</TableCell>
+              <TableCell>
+                <Checkbox
                   checked={item.allowsCustomSize}
                   onChange={(e) => updateSpec(item.id, { allowsCustomSize: e.target.checked })}
                 />
-              </td>
-              <td>
-                <input
+              </TableCell>
+              <TableCell>
+                <TextField
                   type="number"
+                  size="small"
                   value={item.minCm ?? ""}
                   onChange={(e) =>
                     updateSpec(item.id, {
@@ -67,10 +78,11 @@ export function PartSpecsSection({ initialItems }: { initialItems: PartSpecEntry
                     })
                   }
                 />
-              </td>
-              <td>
-                <input
+              </TableCell>
+              <TableCell>
+                <TextField
                   type="number"
+                  size="small"
                   value={item.maxCm ?? ""}
                   onChange={(e) =>
                     updateSpec(item.id, {
@@ -78,11 +90,11 @@ export function PartSpecsSection({ initialItems }: { initialItems: PartSpecEntry
                     })
                   }
                 />
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </section>
+        </TableBody>
+      </Table>
+    </Paper>
   );
 }

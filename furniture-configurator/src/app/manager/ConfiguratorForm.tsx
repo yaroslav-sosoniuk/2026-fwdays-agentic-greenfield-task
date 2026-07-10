@@ -1,6 +1,20 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormGroup from "@mui/material/FormGroup";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Paper from "@mui/material/Paper";
+import Select from "@mui/material/Select";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 
 interface DictionaryOption {
   id: number;
@@ -129,128 +143,141 @@ export function ConfiguratorForm({
   }
 
   return (
-    <div>
-      <form
-        onSubmit={handleSubmit}
-        style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}
-      >
-        <fieldset>
-          <legend>{productType.name}</legend>
+    <Box sx={{ mt: 2 }}>
+      <Paper component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
+        <Typography variant="h6" component="h2" gutterBottom>
+          {productType.name}
+        </Typography>
 
-          <label style={{ display: "block" }}>
-            Верх, см
-            <input
-              type="number"
-              value={topSizeCm}
-              onChange={(e) => setTopSizeCm(Number(e.target.value))}
-              required
-            />
-          </label>
-          {errorsByPart.get("TOP") && <p style={{ color: "crimson" }}>{errorsByPart.get("TOP")}</p>}
+        <Stack spacing={2}>
+          <TextField
+            label="Верх, см"
+            type="number"
+            value={topSizeCm}
+            onChange={(e) => setTopSizeCm(Number(e.target.value))}
+            required
+            error={Boolean(errorsByPart.get("TOP"))}
+            helperText={errorsByPart.get("TOP")}
+          />
 
-          <label style={{ display: "block" }}>
-            Низ, см
-            <input
-              type="number"
-              value={bottomSizeCm}
-              onChange={(e) => setBottomSizeCm(Number(e.target.value))}
-              required
-            />
-          </label>
-          {errorsByPart.get("BOTTOM") && <p style={{ color: "crimson" }}>{errorsByPart.get("BOTTOM")}</p>}
+          <TextField
+            label="Низ, см"
+            type="number"
+            value={bottomSizeCm}
+            onChange={(e) => setBottomSizeCm(Number(e.target.value))}
+            required
+            error={Boolean(errorsByPart.get("BOTTOM"))}
+            helperText={errorsByPart.get("BOTTOM")}
+          />
 
-          <label style={{ display: "block" }}>
-            Колір фасаду
-            <select
+          <FormControl fullWidth>
+            <InputLabel id="facade-color-label">Колір фасаду</InputLabel>
+            <Select
+              labelId="facade-color-label"
+              label="Колір фасаду"
               value={facadeColorId}
               onChange={(e) => setFacadeColorId(Number(e.target.value))}
             >
               {colors.map((c) => (
-                <option key={c.id} value={c.id}>
+                <MenuItem key={c.id} value={c.id}>
                   {c.name}
-                </option>
+                </MenuItem>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FormControl>
 
-          <label style={{ display: "block" }}>
-            Матеріал фасаду
-            <select
+          <FormControl fullWidth>
+            <InputLabel id="facade-material-label">Матеріал фасаду</InputLabel>
+            <Select
+              labelId="facade-material-label"
+              label="Матеріал фасаду"
               value={facadeMaterialId}
               onChange={(e) => setFacadeMaterialId(Number(e.target.value))}
             >
               {materials.map((m) => (
-                <option key={m.id} value={m.id}>
+                <MenuItem key={m.id} value={m.id}>
                   {m.name}
-                </option>
+                </MenuItem>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FormControl>
 
-          <label style={{ display: "block" }}>
-            Матеріал корпусу
-            <select
+          <FormControl fullWidth>
+            <InputLabel id="corpus-material-label">Матеріал корпусу</InputLabel>
+            <Select
+              labelId="corpus-material-label"
+              label="Матеріал корпусу"
               value={corpusMaterialId}
               onChange={(e) => setCorpusMaterialId(Number(e.target.value))}
             >
               {materials.map((m) => (
-                <option key={m.id} value={m.id}>
+                <MenuItem key={m.id} value={m.id}>
                   {m.name}
-                </option>
+                </MenuItem>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FormControl>
 
-          <div>
-            <p>Фурнітура</p>
-            {hardwareItems.map((h) => (
-              <label key={h.id} style={{ display: "block" }}>
-                <input
-                  type="checkbox"
-                  checked={selectedHardwareIds.includes(h.id)}
-                  onChange={() => toggleHardware(h.id)}
+          <Box>
+            <Typography variant="subtitle2" gutterBottom>
+              Фурнітура
+            </Typography>
+            <FormGroup>
+              {hardwareItems.map((h) => (
+                <FormControlLabel
+                  key={h.id}
+                  control={
+                    <Checkbox
+                      checked={selectedHardwareIds.includes(h.id)}
+                      onChange={() => toggleHardware(h.id)}
+                    />
+                  }
+                  label={`${h.name} (${h.sku})`}
                 />
-                {h.name} ({h.sku})
-              </label>
-            ))}
-          </div>
-        </fieldset>
+              ))}
+            </FormGroup>
+          </Box>
 
-        <button type="submit" disabled={isSubmitting}>
-          Сформувати BOM
-        </button>
-      </form>
+          <Button type="submit" variant="contained" disabled={isSubmitting}>
+            Сформувати BOM
+          </Button>
+        </Stack>
+      </Paper>
 
-      {submitError && <p style={{ color: "crimson" }}>{submitError}</p>}
+      {submitError && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {submitError}
+        </Alert>
+      )}
 
       {result && (
-        <section style={{ marginTop: 24 }}>
+        <Paper sx={{ p: 3, mt: 2 }}>
           {result.bomResult.valid ? (
-            <>
-              <p>
+            <Stack spacing={1}>
+              <Typography>
                 {result.isStandard
                   ? `Стандартна партія (${result.matchingEntry?.sku})`
                   : "Індивідуальна комбінація (ще немає в каталозі)"}
-              </p>
-              <ul>
+              </Typography>
+              <Box component="ul" sx={{ pl: 3, m: 0 }}>
                 {result.bomResult.bom.map((c) => (
-                  <li key={`${c.partRole}-${c.sku}`}>
+                  <Typography component="li" key={`${c.partRole}-${c.sku}`}>
                     {c.label} — <code>{c.sku}</code>
-                  </li>
+                  </Typography>
                 ))}
-              </ul>
+              </Box>
               {!result.isStandard && (
-                <button onClick={handleSaveAsCatalogEntry}>
+                <Button onClick={handleSaveAsCatalogEntry} variant="outlined" sx={{ alignSelf: "flex-start" }}>
                   Зберегти як нову каталожну позицію
-                </button>
+                </Button>
               )}
-              {saveMessage && <p>{saveMessage}</p>}
-            </>
+              {saveMessage && <Alert severity="info">{saveMessage}</Alert>}
+            </Stack>
           ) : (
-            <p>Виправте помилки вище, щоб сформувати BOM.</p>
+            <Typography>Виправте помилки вище, щоб сформувати BOM.</Typography>
           )}
-        </section>
+        </Paper>
       )}
-    </div>
+    </Box>
   );
 }

@@ -1,3 +1,8 @@
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Container from "@mui/material/Container";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { logout } from "@/app/login/actions";
 import { prisma } from "@/lib/prisma";
 import { NIGHTSTAND_PRODUCT_TYPE_NAME } from "@/lib/constants";
@@ -29,13 +34,17 @@ export default async function AdminPage() {
     ]);
 
   return (
-    <main style={{ maxWidth: 960, margin: "2rem auto", fontFamily: "sans-serif" }}>
-      <header style={{ display: "flex", justifyContent: "space-between" }}>
-        <h1>Керування довідниками</h1>
-        <form action={logout}>
-          <button type="submit">Вийти</button>
-        </form>
-      </header>
+    <Container maxWidth="md" sx={{ my: 4 }}>
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+        <Typography variant="h4" component="h1">
+          Керування довідниками
+        </Typography>
+        <Box component="form" action={logout}>
+          <Button type="submit" variant="outlined">
+            Вийти
+          </Button>
+        </Box>
+      </Stack>
 
       <SimpleDictionarySection
         title="Кольори"
@@ -53,6 +62,6 @@ export default async function AdminPage() {
       <StandardSizesSection initialItems={standardSizes} />
       <PartSpecsSection initialItems={productType.partSpecs} />
       <CatalogEntriesSection initialItems={catalogEntries} />
-    </main>
+    </Container>
   );
 }

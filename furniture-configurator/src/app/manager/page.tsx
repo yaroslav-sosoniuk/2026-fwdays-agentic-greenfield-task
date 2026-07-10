@@ -1,3 +1,8 @@
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Container from "@mui/material/Container";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { logout } from "@/app/login/actions";
 import { prisma } from "@/lib/prisma";
 import { NIGHTSTAND_PRODUCT_TYPE_NAME } from "@/lib/constants";
@@ -16,19 +21,23 @@ export default async function ManagerPage() {
   ]);
 
   return (
-    <main style={{ maxWidth: 720, margin: "2rem auto", fontFamily: "sans-serif" }}>
-      <header style={{ display: "flex", justifyContent: "space-between" }}>
-        <h1>Конфігуратор виробів</h1>
-        <form action={logout}>
-          <button type="submit">Вийти</button>
-        </form>
-      </header>
+    <Container maxWidth="sm" sx={{ my: 4 }}>
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+        <Typography variant="h4" component="h1">
+          Конфігуратор виробів
+        </Typography>
+        <Box component="form" action={logout}>
+          <Button type="submit" variant="outlined">
+            Вийти
+          </Button>
+        </Box>
+      </Stack>
       <ConfiguratorForm
         productType={{ id: productType.id, name: productType.name }}
         colors={colors}
         materials={materials}
         hardwareItems={hardwareItems}
       />
-    </main>
+    </Container>
   );
 }
